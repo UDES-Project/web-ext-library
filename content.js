@@ -140,7 +140,7 @@ class UMES_ContentScript {
     }
 
     setMessageContainer(containerQuery, messageQuery, onMessageCallback) {
-        return setInterval(function () {
+        return setInterval((() => {
             var parentDiv = document.querySelector(containerQuery);
 
             if (parentDiv && parentDiv != this.currentMessagesContainer) {
@@ -148,14 +148,14 @@ class UMES_ContentScript {
 
                 this.currentMessagesContainer = parentDiv
 
-                getAllMessages(messageQuery, onMessageCallback)
+                this.getAllMessages(messageQuery, onMessageCallback)
 
-                var observer = new MutationObserver((e) => handleMutation(e, messageQuery, onMessageCallback));
+                var observer = new MutationObserver((e) => this.handleMutation(e, messageQuery, onMessageCallback));
 
                 var observerConfig = { childList: true };
 
                 observer.observe(parentDiv, observerConfig);
             }
-        }, 1000);
+        }).bind(this), 1000);
     }
 }
