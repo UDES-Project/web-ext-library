@@ -2,17 +2,17 @@ class UMES_Script {
     constructor() {
         this.callbacks = {}
 
-        window.addEventListener("message", this.onMessage, false);
+        window.addEventListener("message", this.onMessage.bind(this), false);
     }
 
     onMessage(event) {
         if (event.data.event_type == "UMES_updateMessage") {
-            var callback = callbacks[event.data.nonce]
+            var callback = this.callbacks[event.data.nonce]
     
             if (callback) {
                 callback(event.data.public_id, event.data.key)
 
-                delete callbacks[event.data.nonce]
+                delete this.callbacks[event.data.nonce]
             }
         }
     }
@@ -36,9 +36,9 @@ class UMES_Script {
     }
 
     encryptMessage(content, callback) {
-        nonce = randomNonce(10)
+        var nonce = this.randomNonce(10)
 
-        callbacks[nonce] = callback
+        this.callbacks[nonce] = callback
 
         this.postEncryptMessage(content, nonce)
     }

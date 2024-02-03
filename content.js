@@ -3,13 +3,12 @@ class UMES_ContentScript {
         this.base_url = base_url
         this.verbose = verbose
 
-        window.addEventListener('message', this.onMessage);
+        window.addEventListener('message', this.onMessage.bind(this));
     }
 
     onMessage(event) {
-        this.log("[UMES] onMessage:", event.data)
         if (event.data.event_type == "UMES_encryptMessage") {
-            encryptMessage(event.data.content, (public_id, key) => {
+            this.encryptMessage(event.data.content, (public_id, key) => {
                 event.source.postMessage(
                     {
                         event_type: "UMES_updateMessage",
@@ -62,15 +61,15 @@ class UMES_ContentScript {
 
     makeRequest(url, callback, options) {
         this.log("[UMES] Request to", url)
-        browser.runtime.sendMessage({ action: "makeRequest", url: url, options: options }, callback);
+        browser.runtime.sendMessage({ action: "UMES_makeRequest", url: url, options: options }, callback);
     }
 
     encryptMessage(content, callback) {
-        const key = randomKey(128)
+        const key = this.randomKey(128)
 
         var encrypted = this.encryptString(content, key)
 
-        makeRequest(`${BASE_URL}/message`, (res) => {
+        this.makeRequest(`${this.base_url}/message`, (res) => {
             if (!res.success) {
                 this.error("[UMES] encryptMessage error:", res.error)
                 return
@@ -90,7 +89,7 @@ class UMES_ContentScript {
         var public_id = content.split(":")[0]
         var key = content.split(":")[1]
 
-        makeRequest(`${BASE_URL}/message?public_id=${public_id}`, (res) => {
+        this.makeRequest(`${this.base_url}/message?public_id=${public_id}`, (res) => {
             if (!res.success) {
                 this.error("[UMES] Get message error:", res.error)
                 return
@@ -104,18 +103,23 @@ class UMES_ContentScript {
         return content.startsWith("[UMES]") && content.split(":").length == 2
     }
 
-    injectScript(file, tag) {
-        file_path = browser.extension.getURL(file)
+    injectScript(file, parent = "body", lib = false) {
+        var file_path = browser.extension.getURL(file)
 
-        if (document.getElementById("[UMES]script")) {
+        if (!lib && document.getElementById("[UMES]script")) {
             location.reload()
         }
 
-        var node = document.getElementsByTagName(tag)[0];
+        var node = document.querySelector(parent);
         var script = document.createElement('script');
         script.setAttribute('type', 'text/javascript');
         script.setAttribute('src', file_path);
-        script.setAttribute('id', '[UMES]script')
+        
+        if (!lib) {
+            script.setAttribute('id', '[UMES]script')
+            this.injectScript("web-ext-library/script.js", "body", true)
+        }
+
         node.appendChild(script);
     }
 
@@ -126,7 +130,7 @@ class UMES_ContentScript {
     }
 
     handleMutation(mutationsList, messageQuery, onMessageCallback) {
-        mutationsList.forEach(function (mutation) {
+        mutationsList.forEach((mutation) => {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(function (node) {
                     onMessageCallback(node.querySelector(messageQuery))
