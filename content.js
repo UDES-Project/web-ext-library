@@ -32,11 +32,29 @@ class UMES_ContentScript {
         console.error(...args)
     }
 
+    encryptString(content, key) {
+        let result = [];
+        for (let i = 0; i < content.length; i++) {
+            result.push(content.charCodeAt(i) ^ key[i % key.length].charCodeAt(0));
+        }
+        let encryptedData = new Uint8Array(result);
+        return btoa(String.fromCharCode.apply(null, encryptedData));
+    }
+
+    decryptString(content, key) {
+        let binaryString = atob(content);
+        let result = "";
+        for (let i = 0; i < binaryString.length; i++) {
+            result += String.fromCharCode(binaryString.charCodeAt(i) ^ key[i % key.length].charCodeAt(0));
+        }
+        return result;
+    }
+
     randomKey(length) {
         let result = '';
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         const charactersLength = characters.length;
-        for(var i = 0; i < length; i++) {
+        for (var i = 0; i < length; i++) {
             result += characters.charAt(Math.floor(Math.random() * charactersLength));
         }
         return result;
@@ -50,27 +68,20 @@ class UMES_ContentScript {
     encryptMessage(content, callback) {
         const key = randomKey(128)
 
-        makeRequest(`${BASE_URL}/message/encrypt?content=${content}&key=${key}`, (res) => {
+        var encrypted = this.encryptString(content, key)
+
+        makeRequest(`${BASE_URL}/message`, (res) => {
             if (!res.success) {
                 this.error("[UMES] encryptMessage error:", res.error)
                 return
             }
-    
-            var encrypted = res.json.result
-    
-            makeRequest(`${BASE_URL}/message`, (res) => {
-                if (!res.success) {
-                    this.error("[UMES] encryptMessage error:", res.error)
-                    return
-                }
-                
-                callback(res.json.public_id, key)
-            }, {
-                "method": "POST",
-                "body": {
-                    "content": encrypted
-                }
-            })
+
+            callback(res.json.public_id, key)
+        }, {
+            "method": "POST",
+            "body": {
+                "content": encrypted
+            }
         })
     }
 
@@ -85,14 +96,7 @@ class UMES_ContentScript {
                 return
             }
 
-            makeRequest(`${BASE_URL}/message/decrypt?content=${res.json.content}&key=${key}`, (res) => {
-                if (!res.success) {
-                    this.error("[UMES] Decrypt message error:", res.error)
-                    return
-                }
-
-                callback(res.json.result)
-            })
+            callback(this.decryptString(res.json.content, key))
         })
     }
 
@@ -106,7 +110,7 @@ class UMES_ContentScript {
         if (document.getElementById("[UMES]script")) {
             location.reload()
         }
-    
+
         var node = document.getElementsByTagName(tag)[0];
         var script = document.createElement('script');
         script.setAttribute('type', 'text/javascript');
@@ -134,18 +138,18 @@ class UMES_ContentScript {
     setMessageContainer(containerQuery, messageQuery, onMessageCallback) {
         return setInterval(function () {
             var parentDiv = document.querySelector(containerQuery);
-    
+
             if (parentDiv && parentDiv != this.currentMessagesContainer) {
                 this.log("[UMES] Found message container: ", parentDiv);
-    
+
                 this.currentMessagesContainer = parentDiv
-    
+
                 getAllMessages(messageQuery, onMessageCallback)
-    
+
                 var observer = new MutationObserver((e) => handleMutation(e, messageQuery, onMessageCallback));
-    
+
                 var observerConfig = { childList: true };
-    
+
                 observer.observe(parentDiv, observerConfig);
             }
         }, 1000);
