@@ -129,7 +129,7 @@ class UMES_ContentScript {
         mutationsList.forEach(function (mutation) {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(function (node) {
-                    onMessageCallback(node.querySelector("div > div > div"))
+                    onMessageCallback(node.querySelector(messageQuery))
                 });
             }
         });
