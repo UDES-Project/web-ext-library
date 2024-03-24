@@ -1,23 +1,28 @@
-class UMES_Script {
+export class UMES_Script {
+
+    callbacks: {
+        [key: string]: (public_id: string, key: string) => void
+    }
+
     constructor() {
         this.callbacks = {}
 
-        window.addEventListener("message", this.onMessage, false);
+        window.addEventListener("message", this.onMessage.bind(this), false);
     }
 
-    onMessage(event) {
+    onMessage(event: MessageEvent) {
         if (event.data.event_type == "UMES_updateMessage") {
-            var callback = callbacks[event.data.nonce]
+            var callback = this.callbacks[event.data.nonce]
     
             if (callback) {
                 callback(event.data.public_id, event.data.key)
 
-                delete callbacks[event.data.nonce]
+                delete this.callbacks[event.data.nonce]
             }
         }
     }
     
-    randomNonce(length) {
+    randomNonce(length: number) {
         let result = '';
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         const charactersLength = characters.length;
@@ -27,7 +32,7 @@ class UMES_Script {
         return result;
     }
 
-    postEncryptMessage(content, nonce) {
+    postEncryptMessage(content: string, nonce: string) {
         window.postMessage(JSON.parse(JSON.stringify({
             event_type: "UMES_encryptMessage",
             content: content,
@@ -35,10 +40,10 @@ class UMES_Script {
         })))
     }
 
-    encryptMessage(content, callback) {
-        nonce = randomNonce(10)
+    encryptMessage(content: string, callback: (public_id: string, key: string) => void) {
+        var nonce = this.randomNonce(10)
 
-        callbacks[nonce] = callback
+        this.callbacks[nonce] = callback
 
         this.postEncryptMessage(content, nonce)
     }

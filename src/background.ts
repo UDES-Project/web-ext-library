@@ -1,11 +1,12 @@
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+// @ts-ignore
+browser.runtime.onMessage.addListener((request: any, sender: any, sendResponse: any) => { // TODO: Type this.
     if (request.action === "UMES_makeRequest") {
         makeRequest(request.url, sendResponse, request.options);
         return true;
     }
 });
 
-function makeRequest(url, sendResponse, options) {
+export function makeRequest(url: string, sendResponse: (res: any) => void, options: any = {}) {
     try {
         options = options || {}
         var xhr = new XMLHttpRequest();

@@ -1,56 +1,67 @@
-class UMES_ContentScript {
+export class UMES_ContentScript {
+
+    base_url: string
+    verbose: boolean
+    currentMessagesContainer: Element
+
     constructor(base_url = "http://localhost:5000/api", verbose = true) {
         this.base_url = base_url
         this.verbose = verbose
+        this.currentMessagesContainer = document.body
 
-        window.addEventListener('message', this.onMessage);
+        window.addEventListener('message', this.onMessage.bind(this));
     }
 
-    onMessage(event) {
+    onMessage(event: MessageEvent) {
         this.log("[UMES] onMessage:", event.data)
         if (event.data.event_type == "UMES_encryptMessage") {
-            encryptMessage(event.data.content, (public_id, key) => {
-                event.source.postMessage(
+            this.encryptMessage(event.data.content, (public_id: string, key: string) => {
+                event.source?.postMessage(
                     {
                         event_type: "UMES_updateMessage",
                         public_id: public_id,
                         key: key,
                         nonce: event.data.nonce
                     },
+                    // @ts-ignore  -  postMessage has no origin property but it works (see https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
                     event.origin,
                 );
             })
         }
     };
 
-    log(...args) {
+    log(...args: any[]) {
         if (this.verbose)
             console.log(...args)
     }
 
-    error(...args) {
+    error(...args: any[]) {
         console.error(...args)
     }
 
-    encryptString(content, key) {
+    encryptString(content: string, key: string) {
         let result = [];
         for (let i = 0; i < content.length; i++) {
-            result.push(content.charCodeAt(i) ^ key[i % key.length].charCodeAt(0));
+            var keyData = key[i % key.length]?.charCodeAt(0);
+            if (!keyData) keyData = 0; // Should never happend
+            result.push(content.charCodeAt(i) ^ keyData);
         }
-        let encryptedData = new Uint8Array(result);
-        return btoa(String.fromCharCode.apply(null, encryptedData));
+        // let encryptedData = new Uint8Array(result); <- Needed for vanilla JS
+        return btoa(String.fromCharCode.apply(null, result));
     }
 
-    decryptString(content, key) {
+    decryptString(content: string, key: string) {
         let binaryString = atob(content);
         let result = "";
         for (let i = 0; i < binaryString.length; i++) {
-            result += String.fromCharCode(binaryString.charCodeAt(i) ^ key[i % key.length].charCodeAt(0));
+            var keyData = key[i % key.length]?.charCodeAt(0);
+            if (!keyData) keyData = 0; // Should never happend
+            result += String.fromCharCode(binaryString.charCodeAt(i) ^ keyData);
         }
         return result;
     }
 
-    randomKey(length) {
+    randomKey(length: number) {
         let result = '';
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         const charactersLength = characters.length;
@@ -60,17 +71,18 @@ class UMES_ContentScript {
         return result;
     }
 
-    makeRequest(url, callback, options) {
+    makeRequest(url: string, callback: (res: any) => void, options: any = {}) {
         this.log("[UMES] Request to", url)
-        browser.runtime.sendMessage({ action: "makeRequest", url: url, options: options }, callback);
+        // @ts-ignore
+        browser.runtime.sendMessage({ action: "UMES_makeRequest", url: url, options: options }, callback);
     }
 
-    encryptMessage(content, callback) {
-        const key = randomKey(128)
+    encryptMessage(content: string, callback: (public_id: string, key: string) => void) {
+        const key = this.randomKey(128)
 
         var encrypted = this.encryptString(content, key)
 
-        makeRequest(`${BASE_URL}/message`, (res) => {
+        this.makeRequest(`${this.base_url}/message`, (res: any) => {
             if (!res.success) {
                 this.error("[UMES] encryptMessage error:", res.error)
                 return
@@ -85,33 +97,38 @@ class UMES_ContentScript {
         })
     }
 
-    decryptMessage(content, callback) {
+    decryptMessage(content: string, callback: (content: string) => void) {
         var content = content.replace("[UMES]", "")
         var public_id = content.split(":")[0]
         var key = content.split(":")[1]
 
-        makeRequest(`${BASE_URL}/message?public_id=${public_id}`, (res) => {
+        this.makeRequest(`${this.base_url}/message?public_id=${public_id}`, (res) => {
             if (!res.success) {
                 this.error("[UMES] Get message error:", res.error)
                 return
             }
 
-            callback(this.decryptString(res.json.content, key))
+            if (key)
+                callback(this.decryptString(res.json.content, key))
         })
     }
 
-    isUMESMessage(content) {
+    isUMESMessage(content: string) {
         return content.startsWith("[UMES]") && content.split(":").length == 2
     }
 
-    injectScript(file, tag) {
-        file_path = browser.extension.getURL(file)
+    injectScript(file: string, tag: string) {
+        // @ts-ignore
+        var file_path = browser.extension.getURL(file)
 
         if (document.getElementById("[UMES]script")) {
             location.reload()
         }
 
         var node = document.getElementsByTagName(tag)[0];
+        if (!node) 
+            return
+
         var script = document.createElement('script');
         script.setAttribute('type', 'text/javascript');
         script.setAttribute('src', file_path);
@@ -119,24 +136,24 @@ class UMES_ContentScript {
         node.appendChild(script);
     }
 
-    getAllMessages(messageQuery, onMessageCallback) {
+    getAllMessages(messageQuery: string, onMessageCallback: (message: any) => void) {
         Array.from(this.currentMessagesContainer.children).forEach((message) => {
             onMessageCallback(message.querySelector(messageQuery))
         })
     }
 
-    handleMutation(mutationsList, messageQuery, onMessageCallback) {
+    handleMutation(mutationsList: MutationRecord[], messageQuery: string, onMessageCallback: (message: any) => void) {
         mutationsList.forEach(function (mutation) {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(function (node) {
-                    onMessageCallback(node.querySelector(messageQuery))
+                    onMessageCallback((node as Element).querySelector(messageQuery))
                 });
             }
         });
     }
 
-    setMessageContainer(containerQuery, messageQuery, onMessageCallback) {
-        return setInterval(function () {
+    setMessageContainer(containerQuery: string, messageQuery: string, onMessageCallback: (message: any) => void) {
+        return setInterval(() => {
             var parentDiv = document.querySelector(containerQuery);
 
             if (parentDiv && parentDiv != this.currentMessagesContainer) {
@@ -144,9 +161,9 @@ class UMES_ContentScript {
 
                 this.currentMessagesContainer = parentDiv
 
-                getAllMessages(messageQuery, onMessageCallback)
+                this.getAllMessages(messageQuery, onMessageCallback)
 
-                var observer = new MutationObserver((e) => handleMutation(e, messageQuery, onMessageCallback));
+                var observer = new MutationObserver((e) => this.handleMutation(e, messageQuery, onMessageCallback));
 
                 var observerConfig = { childList: true };
 
