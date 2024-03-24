@@ -1,3 +1,4 @@
+
 export class UMES_Script {
 
     callbacks: {
