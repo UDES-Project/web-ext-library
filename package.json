@@ -1,13 +1,13 @@
 {
   "name": "@umes/web-ext-library",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "module": "dist/index.mjs",
+  "main": "index.js",
+  "types": "lib/index.d.ts",
+  "module": "lib/index.mjs",
   "description": "The library of UMES to make web extensions",
   "scripts": {
-    "build": "tsup src --format cjs,esm --dts",
+    "build": "tsup src --format cjs,esm --dts -d lib",
     "lint": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
