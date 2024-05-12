@@ -1,10 +1,9 @@
 {
   "name": "@umes/web-ext-library",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "type": "module",
   "main": "index.js",
   "types": "lib/index.d.ts",
-  "module": "lib/index.mjs",
   "description": "The library of UMES to make web extensions",
   "scripts": {
     "build": "tsup src --format cjs,esm --dts -d lib",

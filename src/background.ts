@@ -1,46 +1,31 @@
-import { v4 as uuidv4 } from 'uuid';
-
 export class UMES_Background {
 
     name: string
-    instance: string
+    icon: string
 
-    constructor(name: string) {
+    constructor(name: string, icon: string) {
 
         this.name = name
-        this.instance = uuidv4();
+        // @ts-ignore
+        this.icon = browser.runtime.getURL(icon)
 
         // @ts-ignore
         browser.runtime.onMessage.addListener(this.onMessage.bind(this))
     }
 
     onMessage(request: any, sender: any, sendResponse: any) { // TODO: Type this.
+        console.log("Request: ", request)
         if (request.action === "UMES_makeRequest") {
             this.makeRequest(request.url, sendResponse, request.options);
         } else if (request.action === "UMES_enumExtensions") {
-            if (request.instance !== this.instance) {
-                // FOR TESTS
-            }
             sendResponse(this.getExtensionInfos());
-        } else {
-            return false;
         }
-        return true
-    }
-
-    getExtensions() {
-        function extensionReponse(ext: any) {
-            console.log(ext)
-        }
-
-        // @ts-ignore
-        browser.runtime.sendMessage({ action: "UMES_enumExtensions", instance: this.instance }, extensionReponse);
     }
 
     getExtensionInfos() {
         return {
             name: this.name,
-            instance: this.instance
+            icon: this.icon
         }
     }
     
