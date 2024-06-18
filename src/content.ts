@@ -146,7 +146,9 @@ export class UMES_ContentScript {
         mutationsList.forEach(function (mutation) {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(function (node) {
-                    onMessageCallback((node as Element).querySelector(messageQuery))
+                    if ((node as Element).outerHTML) {
+                        onMessageCallback((node as Element).querySelector(messageQuery))
+                    }
                 });
             }
         });
