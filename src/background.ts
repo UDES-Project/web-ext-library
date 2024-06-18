@@ -20,6 +20,7 @@ export class UMES_Background {
         } else if (request.action === "UMES_enumExtensions") {
             sendResponse(this.getExtensionInfos());
         }
+        return true
     }
 
     getExtensionInfos() {
