@@ -117,7 +117,7 @@ export class UMES_ContentScript {
         return content.startsWith("[UMES]") && content.split(":").length == 2
     }
 
-    async injectScript(file: string, tag: string, inline_script: boolean = true) {
+    async injectScript(file: string, tag: string) {
         // @ts-ignore
         var file_path = browser.extension.getURL(file)
 
@@ -131,13 +131,7 @@ export class UMES_ContentScript {
 
         var script = document.createElement('script');
         script.setAttribute('type', 'text/javascript');
-        
-        if (inline_script) {
-            script.setAttribute('src', file_path);
-        } else {
-            script.innerHTML = await (await fetch(file_path)).text()
-        }
-
+        script.setAttribute('src', file_path);
         script.setAttribute('id', '[UMES]script')
         node.appendChild(script);
     }
