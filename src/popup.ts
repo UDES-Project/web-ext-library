@@ -1,7 +1,7 @@
-export class UMES_Popup {
+export class UDES_Popup {
 
     static getExtensions(extensionCallback: (ext: any) => void) {
         // @ts-ignore
-        browser.runtime.sendMessage({ action: "UMES_enumExtensions" }, extensionCallback);
+        browser.runtime.sendMessage({ action: "UDES_enumExtensions" }, extensionCallback);
     }
 }

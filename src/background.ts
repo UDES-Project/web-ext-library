@@ -1,4 +1,4 @@
-export class UMES_Background {
+export class UDES_Background {
 
     name: string
     icon: string
@@ -15,9 +15,9 @@ export class UMES_Background {
 
     onMessage(request: any, sender: any, sendResponse: any) { // TODO: Type this.
         console.log("Request: ", request)
-        if (request.action === "UMES_makeRequest") {
+        if (request.action === "UDES_makeRequest") {
             this.makeRequest(request.url, sendResponse, request.options);
-        } else if (request.action === "UMES_enumExtensions") {
+        } else if (request.action === "UDES_enumExtensions") {
             sendResponse(this.getExtensionInfos());
         }
         return true
@@ -30,7 +30,7 @@ export class UMES_Background {
         }
     }
     
-    makeRequest(url: string, sendResponse: (res: any) => void, options: any = {}) {
+    makeRequest(url: string, sendResponse: (res: any) => Promise<void>, options: any = {}) {
         try {
             options = options || {}
             var xhr = new XMLHttpRequest();
@@ -48,7 +48,7 @@ export class UMES_Background {
             xhr.setRequestHeader("Content-Type", "application/json");
             xhr.send(data);
         } catch (e) {
-            console.error("[UMES] makeRequest error: ", e)
+            console.error("[UDES] makeRequest error: ", e)
             sendResponse({ success: false, error: e });
         }
     }

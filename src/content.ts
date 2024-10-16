@@ -1,4 +1,7 @@
-export class UMES_ContentScript {
+import { decryptData, encryptData, generateAESKey } from "./aes"
+import { base64ToUint8Array, importCryptoKeyFromBase64, uint8ArrayToBase64 } from "./utils"
+
+export class UDES_ContentScript {
 
     base_url: string
     verbose: boolean
@@ -12,15 +15,29 @@ export class UMES_ContentScript {
         window.addEventListener('message', this.onMessage.bind(this));
     }
 
-    onMessage(event: MessageEvent) {
-        this.log("[UMES] onMessage:", event.data)
-        if (event.data.event_type == "UMES_encryptMessage") {
-            this.encryptMessage(event.data.content, (public_id: string, key: string) => {
+    async onMessage(event: MessageEvent) {
+        this.log("[UDES] Content onMessage:", event.data)
+        if (event.data.event_type == "UDES_encryptMessage") {
+            await this.encryptMessage(event.data.content, event.data.secret, (public_id: string, key: CryptoKey, counter: Uint8Array, error?: string) => {
                 event.source?.postMessage(
                     {
-                        event_type: "UMES_updateMessage",
+                        event_type: "UDES_encryptedMessage",
                         public_id: public_id,
                         key: key,
+                        counter: counter,
+                        error: error,
+                        nonce: event.data.nonce
+                    },
+                    // @ts-ignore  -  postMessage has no origin property but it works (see https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
+                    event.origin,
+                );
+            })
+        } else if (event.data.event_type == "UDES_decryptMessage") {
+            this.decryptMessage(event.data.content, event.data.secret, (content: string) => {
+                event.source?.postMessage(
+                    {
+                        event_type: "UDES_decryptedMessage",
+                        content: content,
                         nonce: event.data.nonce
                     },
                     // @ts-ignore  -  postMessage has no origin property but it works (see https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)
@@ -50,14 +67,12 @@ export class UMES_ContentScript {
         return btoa(String.fromCharCode.apply(null, result));
     }
 
-    decryptString(content: string, key: string) {
-        let binaryString = atob(content);
-        let result = "";
-        for (let i = 0; i < binaryString.length; i++) {
-            var keyData = key[i % key.length]?.charCodeAt(0);
-            if (!keyData) keyData = 0; // Should never happend
-            result += String.fromCharCode(binaryString.charCodeAt(i) ^ keyData);
-        }
+    async decryptString(content: string, b64key: string, b64counter: string) {
+        let contentBuffer = base64ToUint8Array(content);
+        let key = await importCryptoKeyFromBase64(b64key)
+        let counter = base64ToUint8Array(b64counter);
+
+        let result = await decryptData(key, contentBuffer, counter)
         return result;
     }
 
@@ -71,57 +86,75 @@ export class UMES_ContentScript {
         return result;
     }
 
-    makeRequest(url: string, callback: (res: any) => void, options: any = {}) {
-        this.log("[UMES] Request to", url)
+    makeRequest(url: string, callback: (res: any) => Promise<void>, options: any = {}) {
+        this.log("[UDES] Request to", url)
         // @ts-ignore
-        browser.runtime.sendMessage({ action: "UMES_makeRequest", url: url, options: options }, callback);
+        browser.runtime.sendMessage({ action: "UDES_makeRequest", url: url, options: options }, callback);
     }
 
-    encryptMessage(content: string, callback: (public_id: string, key: string) => void) {
-        const key = this.randomKey(128)
+    async encryptMessage(content: string, secret: string | null, callback: (public_id: string, key: CryptoKey, counter: Uint8Array, error?: string) => void) {
+        const key = await generateAESKey()
 
-        var encrypted = this.encryptString(content, key)
+        var { ciphertext, counter } = await encryptData(key, content)
 
-        this.makeRequest(`${this.base_url}/message`, (res: any) => {
+        console.log(1, ciphertext)
+        console.log(2, uint8ArrayToBase64(ciphertext))
+        console.log(3, base64ToUint8Array(uint8ArrayToBase64(ciphertext)))
+
+        this.makeRequest(`${this.base_url}/message`, async (res: any) => {
             if (!res.success) {
-                this.error("[UMES] encryptMessage error:", res.error)
+                this.error("[UDES] encryptMessage error:", res.error)
                 return
             }
 
-            callback(res.json.public_id, key)
+            callback(res.json.public_id, key, counter, res.json.error)
         }, {
             "method": "POST",
             "body": {
-                "content": encrypted
+                "content": uint8ArrayToBase64(ciphertext),
+                "secret": secret,
+                "action": "create"
             }
         })
     }
 
-    decryptMessage(content: string, callback: (content: string) => void) {
-        var content = content.replace("[UMES]", "")
+    async decryptMessage(content: string, secret = null, callback: (content: string) => void) {
+        var content = content.replace("[UDES:", "").replace("]", "")
         var public_id = content.split(":")[0]
         var key = content.split(":")[1]
+        var counter = content.split(":")[2]
 
-        this.makeRequest(`${this.base_url}/message?public_id=${public_id}`, (res) => {
+        this.makeRequest(`${this.base_url}/message`, async (res) => {
             if (!res.success) {
-                this.error("[UMES] Get message error:", res.error)
+                this.error("[UDES] Get message error:", res.error)
                 return
             }
+            
+            if (res.json.error) {
+                return callback(`[UDES - ERROR] ${res.json.error}`)
+            }
 
-            if (key)
-                callback(this.decryptString(res.json.content, key))
+            if (key && counter)
+                callback(await this.decryptString(res.json.content, key, counter))
+        }, {
+            "method": "POST",
+            "body": {
+                "public_id": public_id,
+                "secret": secret,
+                "action": "read"
+            }
         })
     }
 
-    isUMESMessage(content: string) {
-        return content.startsWith("[UMES]") && content.split(":").length == 2
+    isUDESMessage(content: string) {
+        return content.startsWith("[UDES:")
     }
 
     async injectScript(file: string, tag: string) {
         // @ts-ignore
         var file_path = browser.extension.getURL(file)
 
-        if (document.getElementById("[UMES]script")) {
+        if (document.getElementById("[UDES]script")) {
             location.reload()
         }
 
@@ -132,7 +165,7 @@ export class UMES_ContentScript {
         var script = document.createElement('script');
         script.setAttribute('type', 'text/javascript');
         script.setAttribute('src', file_path);
-        script.setAttribute('id', '[UMES]script')
+        script.setAttribute('id', '[UDES]script')
         node.appendChild(script);
     }
 
@@ -159,7 +192,7 @@ export class UMES_ContentScript {
             var parentDiv = document.querySelector(containerQuery);
 
             if (parentDiv && parentDiv != this.currentMessagesContainer) {
-                this.log("[UMES] Found message container: ", parentDiv);
+                this.log("[UDES] Found message container: ", parentDiv);
 
                 this.currentMessagesContainer = parentDiv
 

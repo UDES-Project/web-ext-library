@@ -1,37 +1,36 @@
 {
-  "name": "@umes/web-ext-library",
-  "version": "1.0.10",
+  "name": "@udes-lib/web-ext",
+  "version": "1.1.7",
   "type": "module",
   "main": "index.js",
   "types": "lib/index.d.ts",
-  "description": "The library of UMES to make web extensions",
+  "description": "The library of UDES to make web extensions",
   "scripts": {
-    "build": "tsup src --format cjs,esm --dts -d lib",
+    "build": "tsup src --format cjs,esm --dts -d lib --no-splitting",
     "lint": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/UMES-Project/web-ext-library.git"
+    "url": "git+https://github.com/UDES-Project/web-ext-library.git"
   },
   "keywords": [
-    "umes",
+    "udes",
     "web-ext"
   ],
-  "author": "UMES",
+  "author": "UDES",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/UMES-Project/web-ext-library/issues"
+    "url": "https://github.com/UDES-Project/web-ext-library/issues"
   },
-  "homepage": "https://github.com/UMES-Project/web-ext-library#readme",
+  "homepage": "https://github.com/UDES-Project/web-ext-library#readme",
   "devDependencies": {
-    "@types/uuid": "^9.0.8",
-    "@typescript/lib-dom": "npm:@types/web@^0.0.142",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.3",
-    "webextension-polyfill": "^0.10.0"
+    "@types/uuid": "10.0.0",
+    "tsup": "8.3.0",
+    "typescript": "5.6.2",
+    "webextension-polyfill": "0.12.0"
   },
   "dependencies": {
-    "uuid": "^9.0.1"
+    "uuid": "10.0.0"
   }
 }
