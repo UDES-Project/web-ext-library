@@ -169,25 +169,34 @@ export class UDES_ContentScript {
         node.appendChild(script);
     }
 
-    getAllMessages(messageQuery: string, onMessageCallback: (message: any) => void) {
+    getAllMessages(messageQuery: string, onMessageCallback: (message: any) => void, queryAll: boolean) {
         Array.from(this.currentMessagesContainer.children).forEach((message) => {
-            onMessageCallback(message.querySelector(messageQuery))
+            if (queryAll) {
+                onMessageCallback(message.querySelectorAll(messageQuery))
+            } else {
+                onMessageCallback(message.querySelector(messageQuery))
+            }
         })
     }
 
-    handleMutation(mutationsList: MutationRecord[], messageQuery: string, onMessageCallback: (message: any) => void) {
+    handleMutation(mutationsList: MutationRecord[], messageQuery: string, onMessageCallback: (message: any) => void, queryAll: boolean) {
         mutationsList.forEach(function (mutation) {
             if (mutation.type === 'childList') {
                 mutation.addedNodes.forEach(function (node) {
-                    if ((node as Element).outerHTML) {
-                        onMessageCallback((node as Element).querySelector(messageQuery))
+                    var element = node as Element
+                    if (element.outerHTML) {
+                        if (queryAll) {
+                            onMessageCallback(element.querySelectorAll(messageQuery))
+                        } else {
+                            onMessageCallback(element.querySelector(messageQuery))
+                        }
                     }
                 });
             }
         });
     }
 
-    setMessageContainer(containerQuery: string, messageQuery: string, onMessageCallback: (message: any) => void) {
+    setMessageContainer(containerQuery: string, messageQuery: string, onMessageCallback: (message: any) => void, queryAll = false) {
         return setInterval(() => {
             var parentDiv = document.querySelector(containerQuery);
 
@@ -196,9 +205,9 @@ export class UDES_ContentScript {
 
                 this.currentMessagesContainer = parentDiv
 
-                this.getAllMessages(messageQuery, onMessageCallback)
+                this.getAllMessages(messageQuery, onMessageCallback, queryAll)
 
-                var observer = new MutationObserver((e) => this.handleMutation(e, messageQuery, onMessageCallback));
+                var observer = new MutationObserver((e) => this.handleMutation(e, messageQuery, onMessageCallback, queryAll));
 
                 var observerConfig = { childList: true };
 
