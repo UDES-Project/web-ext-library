@@ -152,7 +152,7 @@ export class UDES_ContentScript {
 
     async injectScript(file: string, tag: string) {
         // @ts-ignore
-        var file_path = browser.extension.getURL(file)
+        var file_path = browser.runtime.getURL(file)
 
         if (document.getElementById("[UDES]script")) {
             location.reload()
