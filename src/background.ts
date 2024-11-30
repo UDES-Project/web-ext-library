@@ -11,6 +11,16 @@ export class UDES_Background {
 
         // @ts-ignore
         browser.runtime.onMessage.addListener(this.onMessage.bind(this))
+        // @ts-ignore
+        browser.runtime.onMessageExternal.addListener(this.onMessageExternal.bind(this))
+    }
+
+    onMessageExternal(request: any, sender: any, sendResponse: any) { // TODO: Type this.
+        console.log("Request: ", request)
+        if (request.action === "UDES_enumExtensions") {
+            sendResponse(this.getExtensionInfos());
+        }
+        return true
     }
 
     onMessage(request: any, sender: any, sendResponse: any) { // TODO: Type this.
